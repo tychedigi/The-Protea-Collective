@@ -1,0 +1,43 @@
+{
+  "entities": {
+    "Project": {
+      "title": "Project",
+      "description": "A philanthropic project/campaign",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "slug": { "type": "string" },
+        "category": { "type": "string" },
+        "shortDescription": { "type": "string" },
+        "fullDescription": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "goal": { "type": "number" },
+        "raised": { "type": "number" },
+        "donors": { "type": "number" },
+        "icon": { "type": "string" }
+      },
+      "required": ["id", "title", "slug", "category", "shortDescription", "fullDescription", "imageUrl", "goal", "raised", "donors", "icon"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Admin privileges",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "addedAt": { "type": "number" }
+      },
+      "required": ["email", "addedAt"]
+    }
+  },
+  "firestore": {
+    "/projects/{projectId}": {
+      "schema": { "$ref": "#/entities/Project" },
+      "description": "The active projects"
+    },
+    "/admins/{userId}": {
+      "schema": { "$ref": "#/entities/Admin" },
+      "description": "Authorized administrators"
+    }
+  }
+}

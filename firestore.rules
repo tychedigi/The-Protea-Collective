@@ -1,0 +1,63 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Primitives
+    function isSignedIn() { return request.auth != null; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isAdmin() { return isSignedIn() && (exists(/databases/$(database)/documents/admins/$(request.auth.uid)) || request.auth.token.email == "support@tychedigi.com"); }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    
+    // Entity Validations
+    function isValidProject(data) {
+      return data.keys().hasAll(['id', 'title', 'slug', 'category', 'shortDescription', 'fullDescription', 'imageUrl', 'goal', 'raised', 'donors', 'icon']) &&
+             data.keys().size() == 11 &&
+             data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             data.slug is string && data.slug.size() > 0 && data.slug.size() <= 200 &&
+             data.category is string && data.category.size() > 0 && data.category.size() <= 100 &&
+             data.shortDescription is string && data.shortDescription.size() <= 500 &&
+             data.fullDescription is string && data.fullDescription.size() <= 50000 &&
+             data.imageUrl is string && data.imageUrl.size() <= 1000 &&
+             data.goal is number && data.goal > 0 &&
+             data.raised is number && data.raised >= 0 &&
+             data.donors is number && data.donors >= 0 &&
+             data.icon is string && data.icon.size() <= 100;
+    }
+
+    // Collections
+    match /projects/{projectId} {
+      allow read: if true; // Publicly readable
+      
+      allow create: if isAdmin() &&
+                    isValidId(projectId) &&
+                    isValidProject(incoming()) &&
+                    incoming().id == projectId;
+                    
+      allow update: if isValidId(projectId) && 
+        (
+          (isAdmin() && isValidProject(incoming()) && incoming().id == existing().id) ||
+          // Public updates for donations (donors and raised amounts only)
+          (!isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['raised', 'donors']) &&
+           incoming().raised >= existing().raised &&
+           incoming().donors >= existing().donors &&
+           incoming().id == existing().id)
+        );
+        
+      allow delete: if isAdmin() && isValidId(projectId);
+    }
+    
+    match /admins/{userId} {
+      // Only existing admins can read/write the admins list
+      // The first admin will be bootstrapped manually or via Firebase console.
+      allow read, write: if isAdmin();
+    }
+  }
+}
